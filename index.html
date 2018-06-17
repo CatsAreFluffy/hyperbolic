@@ -1,0 +1,123 @@
+<html>
+<head>
+<!--
+Todo:
+Add matrix display (done)
+Add buttons to move and rotate (4/6)
+Add display (wip)
+Add markers
+-->
+<script src="twgl.js"></script>
+<script>
+var m4=twgl.m4 //twgl's 4x4 matrix library
+var matrix=m4.identity()
+var dist=2*sidelen(Math.PI/5,Math.PI/4,Math.PI/2)
+var angle=Math.PI*1/2
+/*function matrixmult(a,b){
+	var out=[]
+	for(var i=0;i<a.length;i++){
+		var temp2=[]
+		for(var j=0;j<b[0].length;j++){
+			var temp=0
+			for(var k=0;k<b.length;k++){
+				temp+=a[k][j]*b[i][k]
+			}
+			temp2.push(temp)
+		}
+		out.push(temp2)
+	}
+	return out
+}*/
+function out(x){
+	var temp=""
+	for(var i=0;i<3;i++){
+		for(var j=0;j<3;j++){
+			temp+=x[i*4+j].toFixed(3)
+			temp+=","
+		}
+		temp+="<br>"
+	}
+	document.getElementById("box").innerHTML=temp
+}
+function multby(x){
+	m4.multiply(x,matrix,matrix)
+	out(matrix)
+}
+//the hyperboloid is centered around +z axis (for neater vectors)
+//matrices are stored in webgl format (flat list of 16 numbers)
+function xmatrix(t){
+	const cosh=Math.cosh
+	const sinh=Math.sinh
+	return [cosh(t),0,sinh(t),0,0,1,0,0,sinh(t),0,cosh(t),0,0,0,0,1]
+}
+function ymatrix(t){
+	const cosh=Math.cosh
+	const sinh=Math.sinh
+	return [1,0,0,0,0,cosh(t),sinh(t),0,0,sinh(t),cosh(t),0,0,0,0,1]
+}
+function zmatrix(t){
+	return m4.rotationZ(t)
+}
+function sidelen(a,b,y){ //side length of hyperbolic triangle (side=opposite a)
+	var cos=Math.cos
+	var sin=Math.sin
+	return Math.acosh((cos(a)+cos(b)*cos(y))/(sin(b)*sin(y)))
+}
+</script>
+<script id="vshader" type="thisdoesntmatteraslongasitsnotjavascript">
+	attribute vec4 point;
+	//attribute mat4 matrix;
+
+	void main(){
+		gl_Position=point;
+	}
+</script>
+<script id="fshader" type="ditto">
+	precision mediump float;
+
+	void main(){
+		gl_FragColor=vec4(1,0,0,1);
+	}
+</script>
+<script>
+//webgl stuff
+function onload(){
+	function elembyID(x){
+		return document.getElementById(x)
+	}
+	window.gl=twgl.getContext(document.getElementById("renderbox"))
+	if(!gl){
+		console.log("Something bad has happened to WebGL or it doesn't exist")
+		return "Abort"
+	}
+	var programinfo=twgl.createProgramInfo(gl,["vshader","fshader"])
+	const sqrt2=Math.sqrt(2)
+	var pos={
+		point:{numComponents:3,data:[-1,1,sqrt2,-1,-1,sqrt2,0,1,1]}
+	}
+	var bufferinfo=twgl.createBufferInfoFromArrays(gl,pos)
+	console.log(bufferinfo)
+	function render(){
+		gl.useProgram(programinfo.program)
+		gl.viewport(0,0,400,400)
+		twgl.setBuffersAndAttributes(gl,programinfo,bufferinfo)
+		twgl.drawBufferInfo(gl,gl.TRAINGLES,bufferinfo)
+		requestAnimationFrame(render)
+	}
+	requestAnimationFrame(render)
+	console.log(render)
+}
+</script>
+</head>
+<body onload="onload()">
+Matrix multiplier and hyperbolic rotator<br>
+<canvas id="renderbox" width="400" height="400">Your browser doesn't support the canvas :(. The matrix view probably works though</canvas>
+<div id="box">1.000,0.000,0.000<br>0.000,1.000,0.000<br>0.000,0.000,1.000</div>
+<button id="up" onclick="multby(ymatrix(dist))">Forward</button>
+<button id="down" onclick="multby(ymatrix(-dist))">Back</button>
+<br>
+<button id="left" onclick="multby(xmatrix(-dist))">Left</button>
+<button id="right" onclick="multby(xmatrix(dist))">Right</button>
+<br>
+<button id="cw" onclick="multby(zmatrix(-angle))">Turn right</button>
+<button id="ccw" onclick="multby(zmatrix(angle))">Turn left</button>
